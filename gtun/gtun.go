@@ -49,6 +49,7 @@ import (
 
 	"github.com/ICKelin/glog"
 	"github.com/ICKelin/gtun/common"
+	kcp "github.com/ICKelin/kcptun/client"
 	"github.com/songgao/water"
 )
 
@@ -82,8 +83,46 @@ func main() {
 		return
 	}
 
+	config := &kcp.Config{}
+	config.RemoteAddr = *psrv
+	config.Key = "ICKelin-gtun-tunnel"
+	config.Crypt = "xor"
+	config.Mode = "fast"
+	config.MTU = 1350
+	config.SndWnd = 1024
+	config.RcvWnd = 1024
+	config.DataShard = 10
+	config.ParityShard = 3
+	config.DSCP = 0
+	config.NoComp = false
+	config.AckNodelay = false
+	config.NoDelay = 0
+	config.Interval = 50
+	config.Resend = 0
+	config.NoCongestion = 0
+	config.SockBuf = 4194304
+	config.KeepAlive = 10
+	config.SnmpPeriod = 60
+	config.Conn = 1
+
+	localAddr := ""
+	for i := 2000; i < 3000; i++ {
+		localAddr = fmt.Sprintf("127.0.0.1:%d", i)
+		config.LocalAddr = localAddr
+		if err := kcp.KCPClient(config); err != nil {
+			continue
+		}
+
+		break
+	}
+
+	if localAddr == "" {
+		glog.ERROR("not enough port to use")
+		return
+	}
+
 	gtun := &GtunContext{
-		srv:      *psrv,
+		srv:      localAddr,
 		key:      *pkey,
 		ldev:     ifce.Name(),
 		sndqueue: make(chan []byte),

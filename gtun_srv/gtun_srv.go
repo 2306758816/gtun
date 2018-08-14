@@ -49,6 +49,7 @@ import (
 	"github.com/ICKelin/glog"
 	"github.com/ICKelin/gtun/common"
 	"github.com/ICKelin/gtun/reverse"
+	kcp "github.com/ICKelin/kcptun/server"
 	"github.com/songgao/water"
 )
 
@@ -59,7 +60,6 @@ var (
 	proute      = flag.String("r", "", "router rules url")
 	pnameserver = flag.String("n", "", "nameservers for gtun_cli")
 	preverse    = flag.String("p", "./reverse", "reverse proxy policy path")
-	phelp       = flag.Bool("h", false, "print usage")
 	ptap        = flag.Bool("t", false, "tap device")
 
 	dhcppool       *DHCPPool
@@ -247,7 +247,48 @@ func GtunServe(lip, listenAddr string) {
 		return
 	}
 
-	laddr, err := net.ResolveTCPAddr("tcp", listenAddr)
+	// laddr, err := net.ResolveTCPAddr("tcp", listenAddr)
+	// if err != nil {
+	// 	glog.ERROR(err)
+	// 	return
+	// }
+	config := &kcp.Config{}
+	config.Listen = listenAddr
+	config.Key = "ICKelin-gtun-tunnel"
+	config.Crypt = "xor"
+	config.Mode = "fast"
+	config.MTU = 1350
+	config.SndWnd = 1024
+	config.RcvWnd = 1024
+	config.DataShard = 10
+	config.ParityShard = 3
+	config.DSCP = 0
+	config.NoComp = false
+	config.AckNodelay = false
+	config.NoDelay = 0
+	config.Interval = 50
+	config.Resend = 0
+	config.NoCongestion = 0
+	config.SockBuf = 4194304
+	config.KeepAlive = 10
+	config.SnmpPeriod = 60
+
+	targetAddr := ""
+	for i := 2000; i < 3000; i++ {
+		targetAddr = fmt.Sprintf("127.0.0.1:%d", i)
+		config.Target = targetAddr
+		if err := kcp.KCPServer(config); err != nil {
+			continue
+		}
+		break
+	}
+
+	if targetAddr == "" {
+		glog.ERROR(fmt.Errorf("not enough target port"))
+		return
+	}
+
+	laddr, err := net.ResolveTCPAddr("tcp", targetAddr)
 	if err != nil {
 		glog.ERROR(err)
 		return
